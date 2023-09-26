@@ -1,0 +1,66 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_CHAIRS 5
+
+sem_t customers;
+sem_t barber;
+sem_t accessSeats;
+
+int numWaitingCustomers = 0;
+
+void *barberThread(void *arg) {
+    while (1) {
+        sem_wait(&customers); // Barber waits for a customer
+        sem_wait(&accessSeats); // Ensure exclusive access to the waiting room
+        numWaitingCustomers--;
+        sem_post(&barber); // Wake up the barber
+        sem_post(&accessSeats); // Release the seat access
+        printf("Barber is cutting hair.\n");
+        sleep(2); // Simulate hair cutting
+    }
+    pthread_exit(NULL);
+}
+
+void *customerThread(void *arg) {
+    int id = *((int *)arg);
+    sleep(id % 3); // Customers arrive at different times
+
+    sem_wait(&accessSeats); // Ensure exclusive access to the waiting room
+
+    if (numWaitingCustomers < NUM_CHAIRS) {
+        numWaitingCustomers++;
+        printf("Customer %d has taken a seat. Waiting...\n", id);
+        sem_post(&customers); // Signal the barber
+        sem_post(&accessSeats); // Release the seat access
+        sem_wait(&barber); // Wait for the barber to finish cutting hair
+        printf("Customer %d is having a haircut.\n", id);
+    } else {
+        printf("Customer %d left, no available seats.\n", id);
+        sem_post(&accessSeats); // Release the seat access
+    }
+
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t barberThreadId, customerThreadIds[NUM_CHAIRS];
+    int customerIds[NUM_CHAIRS];
+
+    sem_init(&customers, 0, 0);
+    sem_init(&barber, 0, 0);
+    sem_init(&accessSeats, 0, 1);
+
+    pthread_create(&barberThreadId, NULL, barberThread, NULL);
+
+    for (int i = 0; i < NUM_CHAIRS; i++) {
+        customerIds[i] = i;
+        pthread_create(&customerThreadIds[i], NULL, customerThread, &customerIds[i]);
+    }
+
+    pthread_join(barberThreadId, NULL);
+
+    return 0;
+}
