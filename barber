@@ -1,3 +1,5 @@
+//BARBER
+
 #include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -64,3 +66,305 @@ int main() {
 
     return 0;
 }
+
+
+//CAR TUNNEL 
+
+
+
+#include<stdio.h>
+#include<pthread.h>
+#include<semaphore.h>
+#include<unistd.h>
+#include<string.h>
+
+sem_t  mutexNorth, mutexSouth;
+void* tunnel(void* arg)
+{
+        if(strcmp(arg,"North")==0)
+                sem_wait(&mutexSouth);
+        else
+                sem_wait(&mutexNorth);
+        printf("\n %s : Entered \n",(char*)arg);
+        //CriticalSection
+        sleep(3);
+        printf("\n %s : Exiting \n",(char*)arg);
+        if(strcmp(arg,"North")==0)
+                sem_post(&mutexSouth);
+        else
+                sem_post(&mutexNorth);
+        return 0;
+}
+
+int main()
+{
+        sem_init(&mutexNorth,0,1);
+        sem_init(&mutexSouth,0,1);
+        pthread_t t1,t2,t3,t4,t5,t6,t7,t8;
+        char *msg1="North",*msg2="South";
+        pthread_create(&t1,NULL,tunnel,(void*)msg1);
+        pthread_create(&t2,NULL,tunnel,(void*)msg1);
+        pthread_create(&t3,NULL,tunnel,(void*)msg1);
+        pthread_create(&t4,NULL,tunnel,(void*)msg2);
+        pthread_create(&t5,NULL,tunnel,(void*)msg1);
+        pthread_create(&t6,NULL,tunnel,(void*)msg2);
+        pthread_create(&t7,NULL,tunnel,(void*)msg1);
+        pthread_create(&t8,NULL,tunnel,(void*)msg2);
+        pthread_join(t1,NULL);
+        pthread_join(t2,NULL);
+        pthread_join(t3,NULL);
+        pthread_join(t4,NULL);
+        pthread_join(t5,NULL);
+        pthread_join(t6,NULL);
+        pthread_join(t7,NULL);
+        pthread_join(t8,NULL);
+        sem_destroy(&mutexNorth);
+        sem_destroy(&mutexSouth);
+}
+
+
+//DINNING PHILOSOPHER
+
+
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_PHILOSOPHERS 5
+
+sem_t forks[NUM_PHILOSOPHERS];
+sem_t mutex;
+
+void *philosopherThread(void *arg) {
+    int id = *((int *)arg);
+    int leftFork = id;
+    int rightFork = (id + 1) % NUM_PHILOSOPHERS;
+
+    while (1) {
+        // Thinking
+        printf("Philosopher %d is thinking.\n", id);
+        sleep(1);
+
+        // Grab forks
+        sem_wait(&mutex);
+        sem_wait(&forks[leftFork]);
+        sem_wait(&forks[rightFork);
+        sem_post(&mutex);
+
+        // Eating
+        printf("Philosopher %d is eating.\n", id);
+        sleep(2);
+
+        // Release forks
+        sem_post(&forks[leftFork]);
+        sem_post(&forks[rightFork]);
+    }
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t philosopherThreadIds[NUM_PHILOSOPHERS];
+    int philosopherIds[NUM_PHILOSOPHERS];
+
+    sem_init(&mutex, 0, 1);
+
+    for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
+        sem_init(&forks[i], 0, 1);
+    }
+
+    for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
+        philosopherIds[i] = i;
+        pthread_create(&philosopherThreadIds[i], NULL, philosopherThread, &philosopherIds[i]);
+    }
+
+    for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
+        pthread_join(philosopherThreadIds[i], NULL);
+    }
+
+    return 0;
+}
+
+
+
+//READER WRITER
+
+
+
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_READERS 3
+#define NUM_WRITERS 2
+
+int sharedData = 0;
+int readerCount = 0;
+sem_t mutex, db, rsem;
+
+void *readerThread(void *arg) {
+    int id = *((int *)arg);
+
+    while (1) {
+        sem_wait(&rsem);
+        sem_wait(&mutex);
+        readerCount++;
+        if (readerCount == 1) {
+            sem_wait(&db);
+        }
+        sem_post(&mutex);
+        sem_post(&rsem);
+
+        // Reading shared data
+        printf("Reader %d is reading: %d\n", id, sharedData);
+
+        sem_wait(&mutex);
+        readerCount--;
+        if (readerCount == 0) {
+            sem_post(&db);
+        }
+        sem_post(&mutex);
+
+        // Simulate reading time
+        sleep(1);
+    }
+
+    pthread_exit(NULL);
+}
+
+void *writerThread(void *arg) {
+    int id = *((int *)arg);
+
+    while (1) {
+        // Writing shared data
+        printf("Writer %d is writing: %d\n", id, sharedData);
+        sharedData++;
+
+        // Simulate writing time
+        sleep(2);
+
+        // Release the database lock
+        sem_post(&db);
+
+        // Simulate some work outside the critical section
+        sleep(1);
+    }
+
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t readerThreadIds[NUM_READERS];
+    pthread_t writerThreadIds[NUM_WRITERS];
+    int readerIds[NUM_READERS];
+    int writerIds[NUM_WRITERS];
+
+    sem_init(&mutex, 0, 1);
+    sem_init(&db, 0, 1);
+    sem_init(&rsem, 0, 1);
+
+    for (int i = 0; i < NUM_READERS; i++) {
+        readerIds[i] = i;
+        pthread_create(&readerThreadIds[i], NULL, readerThread, &readerIds[i]);
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        writerIds[i] = i;
+        pthread_create(&writerThreadIds[i], NULL, writerThread, &writerIds[i]);
+    }
+
+    for (int i = 0; i < NUM_READERS; i++) {
+        pthread_join(readerThreadIds[i], NULL);
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        pthread_join(writerThreadIds[i], NULL);
+    }
+
+    return 0;
+}
+
+
+
+
+//SMOKER CAR
+
+
+
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+sem_t agentSem;
+sem_t smokerSem[3];
+sem_t ingredientSem[3];
+
+// Each smoker's ingredients
+const int smokerIngredients[3][2] = {
+    {0, 1}, // Smoker 0 needs ingredient 0 and ingredient 1
+    {1, 2}, // Smoker 1 needs ingredient 1 and ingredient 2
+    {0, 2}  // Smoker 2 needs ingredient 0 and ingredient 2
+};
+
+void *agentThread(void *arg) {
+    while (1) {
+        // Randomly select two different ingredients
+        int ingredient1 = rand() % 3;
+        int ingredient2;
+        do {
+            ingredient2 = rand() % 3;
+        } while (ingredient2 == ingredient1);
+
+        // Put the ingredients on the table
+        sem_post(&ingredientSem[ingredient1]);
+        sem_post(&ingredientSem[ingredient2]);
+
+        // Notify a smoker that the ingredients are available
+        sem_wait(&agentSem);
+    }
+    pthread_exit(NULL);
+}
+
+void *smokerThread(void *arg) {
+    int id = *((int *)arg);
+    while (1) {
+        // Wait for the ingredients needed for this smoker
+        sem_wait(&ingredientSem[smokerIngredients[id][0]]);
+        sem_wait(&ingredientSem[smokerIngredients[id][1]]);
+
+        // Smoke
+        printf("Smoker %d is smoking.\n", id);
+        sleep(2);
+
+        // Notify the agent that the smoker is done
+        sem_post(&agentSem);
+    }
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t agentThreadId, smokerThreadIds[3];
+    int smokerIds[3] = {0, 1, 2};
+
+    sem_init(&agentSem, 0, 0);
+    for (int i = 0; i < 3; i++) {
+        sem_init(&smokerSem[i], 0, 0);
+        sem_init(&ingredientSem[i], 0, 0);
+    }
+
+    pthread_create(&agentThreadId, NULL, agentThread, NULL);
+    for (int i = 0; i < 3; i++) {
+        pthread_create(&smokerThreadIds[i], NULL, smokerThread, &smokerIds[i]);
+    }
+
+    pthread_join(agentThreadId, NULL);
+    for (int i = 0; i < 3; i++) {
+        pthread_join(smokerThreadIds[i], NULL);
+    }
+
+    return 0;
+}
+
