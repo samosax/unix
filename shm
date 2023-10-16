@@ -191,3 +191,84 @@ exit(1);
 *shm = NULL;
 exit(0);
 }
+
+//shm qp 2
+
+#include <stdio.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+int main() {
+    printf("hi");
+
+    int shm_id, shm_id1, shm_id2;
+    int *shm_ptr, *shm_ptr1, *shm_ptr2;
+
+    printf("hi");
+
+    // Create shared memory segments
+    shm_id = shmget(ftok(".", 'a'), 10 * sizeof(int), IPC_CREAT | 0666);
+    shm_ptr = (int *)shmat(shm_id, NULL, 0);
+
+    shm_id1 = shmget(ftok(".", 'b'), sizeof(int), IPC_CREAT | 0666);
+    shm_ptr1 = (int *)shmat(shm_id1, NULL, 0);
+
+    int fd1, fd2;
+    fd1 = fork();
+
+    printf("hi");
+
+    int *s = shm_ptr;
+    for (int i = 0; i < 10; i++) {
+        *(s + i) = ((i * 17) + 1) % 10;
+    }
+
+    if (fd1 == 0) {
+        s = shm_ptr;
+        int min = *s;
+        for (int i = 1; i < 10; i++) {
+            if (*(s + i) < min)
+                min = *(s + i);
+        }
+        s = shm_ptr1;
+        *s = min;
+        shmdt(shm_ptr);
+        exit(0);
+    } else {
+        wait(NULL);
+        shm_id2 = shmget(ftok(".", 'c'), sizeof(int), IPC_CREAT | 0666);
+        shm_ptr2 = (int *)shmat(shm_id2, NULL, 0);
+        fd2 = fork();
+        if (fd2 == 0) {
+            s = shm_ptr;
+            int max = *s;
+            for (int i = 1; i < 10; i++) {
+                if (*(s + i) > max)
+                    max = *(s + i);
+            }
+            s = shm_ptr2;
+            *s = max;
+            shmdt(shm_ptr);
+            exit(0);
+        } else {
+            wait(NULL);
+            int min = *shm_ptr1, max = *shm_ptr2;
+            printf("\nMinimum is: %d", min);
+            printf("\nMaximum is: %d");
+            shmdt(shm_ptr);
+            shmdt(shm_ptr1);
+            shmdt(shm_ptr2);
+            shmctl(shm_id, IPC_RMID, NULL);
+            shmctl(shm_id1, IPC_RMID, NULL);
+            shmctl(shm_id2, IPC_RMID, NULL);
+        }
+    }
+
+    return 0;
+}
+
+Shm pbsheet q2
