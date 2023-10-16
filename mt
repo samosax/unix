@@ -64,7 +64,8 @@ gcc -o EW-cars EW-cars.c
 gcc -o NS-cars NS-cars.c
 
 nano run_both.sh
-
+chmod +x filename
+./filename
 
 adhula idhu add pannanum
 
